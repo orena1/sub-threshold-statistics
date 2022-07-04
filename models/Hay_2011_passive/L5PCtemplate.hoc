@@ -1,0 +1,78 @@
+// Author: Etay Hay, 2011
+//    Models of Neocortical Layer 5b Pyramidal Cells Capturing a Wide Range of
+//    Dendritic and Perisomatic Active Properties
+//    (Hay et al., PLoS Computational Biology, 2011) 
+//
+// Template for models of L5 Pyramidal Cell
+
+begintemplate L5PCtemplate
+  public init
+  public locateSites, getLongestBranch
+  public soma, dend, apic, axon, getAbsSecIndex
+  public all, somatic, apical, axonal, basal, nSecSoma, nSecApical, nSecBasal, nSecAxonal, nSecAll, nSecAxonalOrig, SecSyn, distribute_channels
+  objref SecSyn, this
+  objref all, somatic, apical, axonal, basal
+  strdef tstr
+
+//$s1 - morphology file name
+proc init() {localobj nl,import
+    all = new SectionList()
+    somatic = new SectionList()
+    basal = new SectionList()
+    apical = new SectionList()
+    axonal = new SectionList()
+    forall delete_section()
+
+    nl = new Import3d_Neurolucida3()
+    nl.quiet = 1
+    nl.input($s1)
+    import = new Import3d_GUI(nl, 0)
+    import.instantiate(this)
+    biophys()
+
+    }
+
+create soma[1], dend[1], apic[1], axon[1]
+
+
+proc biophys() {localobj bp
+	delete_axon()
+	area(0.5)
+	distance()
+	access soma
+
+}
+
+// deleting axon, keeping only first 60 micrometers
+proc delete_axon(){
+    forsec axonal{delete_section()}
+    create axon[2]
+    access axon[0]{
+      L= 30
+      diam = 1
+      nseg = 1+2*int(L/40)
+      all.append()
+      axonal.append()
+    }
+    access axon[1]{
+      L= 30
+      diam = 1
+      nseg = 1+2*int(L/40)
+      all.append()
+      axonal.append()
+    }
+
+  nSecAxonal = 2
+  connect axon(0), soma(0.5)
+  connect axon[1](0), axon[0](1) 
+  access soma
+}
+
+
+endtemplate L5PCtemplate
+
+
+
+
+
+ 
