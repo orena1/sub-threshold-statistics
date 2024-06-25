@@ -1,0 +1,73 @@
+ save_current: 1
+ save_voltage: 1
+ save_tot_current: 1
+ Cvk: 0.05
+ g_S: 5
+ n_save: 500
+ time_sim: 430
+ dt: 0.01
+ ni: 2000
+ ne: 8000
+ ke: 400
+ kff: 400
+ ki: 400
+ gee: 0.0347
+ gei: 1.
+ gie: 0.5
+ gii: 1.5
+ thresh_par: -40.0
+ tme: 1.0
+ tmi: 1.0
+ tee: 0.3
+ tei: 0.3
+ tie: 0.3
+ tii: 0.3
+ ii: 0.04               
+ ie: 0.019
+ 
+ C_mE: 1
+ V_LE: -55.0
+ sdV_LE: 0
+ g_LE: 0.1
+ V_NaE: 55 
+ g_NaE: 100
+ V_KE: -90
+ g_KE: 40
+ V_AdapE: -80
+ g_AdapE: 0.5
+
+ V_E: 0.0
+ V_I: -80.0
+ VresetE: -52.0
+ VresetI: -52.0
+  
+ C_mI: 1
+ V_LI: -55.0
+ sdV_LI: 0
+ g_LI: 0.1
+ V_NaI: 55
+ g_NaI: 100
+ V_KI: -80
+ g_KI: 40
+ V_AdapI: 0
+ g_AdapI: 0
+
+ tau_Adap: 6.0
+
+ Vspike: 10.0
+ rho: 0.
+ Tstart: 10
+ TstopStim: 20
+ 
+ TstartStim2: 220 
+ TstopStim2: 230
+ 
+ RLTrial: -.2
+ i2i: 0.012
+ i2e: 0.009
+ Tend: 430
+ AmpInp: .5
+ sd_Ie: 0.08
+ sd_Ii: 0.05
+ sd_thresh_E: .0
+ sd_thresh_I: .0

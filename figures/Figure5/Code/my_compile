@@ -1,0 +1,6 @@
+#!/bin/bash
+# Compile
+
+g++ -Wall -I/usr/include/ -c -o main.o  main.cpp
+g++ -Wall -I/usr/include/ -c -o Simulation.o  Simulation.cpp
+g++ -L/usr/local/lib/ -o main main.o Simulation.o -lgsl -lgslcblas -lm -lyaml-cpp
