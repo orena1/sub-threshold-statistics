@@ -1,0 +1,413 @@
+% Load data
+ 
+Path='/Users/darshan/Dropbox/Work/JaneliaMac/mac1PreFormat-06-11-21/data/ALM/SiliconProbeData/FixedDelayTask';
+cd (Path)
+
+
+
+RFlag=1;
+
+fileListUnSorted = getAllFiles(Path);
+fileListUnSorted(end)=[];
+fileListUnSorted(1)=[];
+fileListUnSorted(end)=[];
+
+fileList=natsortfiles(fileListUnSorted);
+numFiles=length(fileList);
+TotalUnitsAllFiles=0;
+uu=0;
+PSTHD=[];
+for ff=1:length(fileList)
+%     for ff=1
+
+    ff
+    fileName = fileList{ff};
+    % unitNum  = 25;
+    preCueDur  = 4.2; % in sec: plot how many seconds before go cue onset.
+    postCueDur = 1.4; % in sec: plot how many seconds after go cue onset.
+    
+    
+    
+    % laod file & extract info required for plotting
+    load(fileName)
+    TotalUnits=length(unit);
+    TotalUnitsAllFiles=TotalUnitsAllFiles+TotalUnits;
+    
+    % extract info
+    % for unitNum=3
+            trialType      = unit(1).Behavior.Trial_types_of_response_vector; % trial type based on outcome
+        NumCorrectTrials(ff)=sum(trialType==1)+sum(trialType==2) 
+        NumIncorrectTrials(ff)=sum(trialType==3)+sum(trialType==4);
+        NumAllTrials(ff)=length(trialType);
+        
+    for unitNum=1:TotalUnits
+        uu=uu+1;
+        SpikeWidth=unit(unitNum).SpikeWidth;
+        Depth=unit(unitNum).Depth;
+        
+        trialType      = unit(unitNum).Behavior.Trial_types_of_response_vector; % trial type based on outcome
+ 
+        % 1: correct lick R trial,  2: correct lick L trial,  3: incorrect lick R trial,  4: incorrect lick L trial,
+        % 5: correct lick R trial with early lick,   6: correct lick L trial with early lick,
+        % 7: incorrect lick R trial with early lick, 8: incorrect lick L trial with early lick
+        % 9: lick R trial but no response,          10: lick L trial but no response,
+        % 11: others(unidentified)
+        
+        photoStimTrial = unit(unitNum).Behavior.stim_trial_vector;  % photo stim trial type
+        % 0: no stim,   1: 0.05mW bilateral stim during early dealy,
+        % 2: 0.1mW bilateral stim during early dealy,
+        % 3: 0.2mW bilateral stim during early dealy,
+        % 4: 0.3mW bilateral stim during early dealy,
+        % don't analyze 0.05mW it was too weak to have any behavioral effect
+        
+        
+        % extract timing info
+        T.tAxisPSTH   = -preCueDur-0.1:0.001:postCueDur+0.1;      % T axis for PSTH, shift by 0.1 to remove smoothing artifact at the edge
+        T.sampleOnset = [unit(unitNum).Behavior.Sample_start];  % smaple epoch onset
+        T.delayOnset  = [unit(unitNum).Behavior.Delay_start];     % delay epoch onset
+        T.cueOnset    = [unit(unitNum).Behavior.Cue_start];       % go cue  onset
+        
+        % calculate mean onset time of each epoch for plotting
+        % exclude early lick and non-response trial by "trialType<5"
+        T.meanSampleOnset = mean(T.sampleOnset(trialType==1));
+        T.meanDelayOnset  = mean(T.delayOnset(trialType==1));
+        T.meanCueOnset    = mean(T.cueOnset(trialType==1));
+        
+        spikeTimes       = unit(unitNum).SpikeTimes; % time bin of spike
+        trialIdxOfSpikes = unit(unitNum).Trial_idx_of_spike; % time bin of spike
+        
+        trialRange            = unit(unitNum).Trial_info.Trial_range_to_analyze; % range of trials to analyze
+        trialTypeInRange      = trialType(trialRange(1) : trialRange(2));        % trial type in range
+        photoStimTrialInRange = photoStimTrial(trialRange(1) : trialRange(2));   % stim trial type in range
+        
+        
+        selectedTrials=(photoStimTrialInRange==0).*(trialTypeInRange==RFlag);
+        FrD=[];      FrS=[];CV2S=[];CVS=[];
+        ISID=[];ISIS=[];
+
+        %         for tr = trialRange(1) : trialRange(2)
+        trVec=trialRange(1) : trialRange(2);
+        
+        trInd=0;
+        for tr = trVec(selectedTrials==1)
+            trInd=trInd+1;
+            
+            % extarct spikes of each trial
+            %             SpikesTmp   = spikeTimes(trialIdxOfSpikes == tr) - T.cueOnset(tr); % align to go cue
+            sampleInd=(spikeTimes(trialIdxOfSpikes == tr)<T.delayOnset(tr)).*(spikeTimes(trialIdxOfSpikes == tr)>T.sampleOnset(tr));
+            delayInd=(spikeTimes(trialIdxOfSpikes == tr)<T.cueOnset(tr)).*(spikeTimes(trialIdxOfSpikes == tr)>T.delayOnset(tr));
+            cueInd=(spikeTimes(trialIdxOfSpikes == tr)>T.cueOnset(tr));
+            
+            sampleTot=T.delayOnset(tr)-T.sampleOnset(tr);
+            delayTot=T.cueOnset(tr)-T.delayOnset(tr);
+            cueTot=postCueDur;
+            
+%             SpikesTmpD   = spikeTimes(trialIdxOfSpikes == tr) - T.delayOnset(tr); % align to go cue
+
+            SpikesTmp   = spikeTimes(trialIdxOfSpikes == tr) ; 
+            SpikesD=SpikesTmp(delayInd==1);
+%             PSTHD{uu}=[PSTHD{uu} SpikesD tr*length(SpikesD)];
+            SpikesS=SpikesTmp(sampleInd==1);
+            SpikesR=SpikesTmp(cueInd==1);
+            
+            if length(SpikesTmp)<2
+                FrD(trInd)=0;
+                CVD(trInd)=0;
+                CV2D(trInd)=0;
+                
+                FrS(trInd)=0;
+                CVS(trInd)=0;
+                CV2S(trInd)=0;
+                
+                FrR(trInd)=0;
+            else
+                FrS(trInd)=length(SpikesS)./(sampleTot);
+                FrD(trInd)=length(SpikesD)./(delayTot);
+                  FrR(trInd)=length(SpikesR)./(cueTot);
+                
+                % Calc CV
+                if sum(FrD>60)
+                    unitNum
+                    trInd
+                end
+                ISID=[ISID; diff(SpikesD)];
+                                
+                ISIS=[ISIS; diff(SpikesS)];
+                        
+            end
+    
+        end   
+        Session(ff).FrDUnit(unitNum)=mean(FrD);
+        Session(ff).FrRUnit(unitNum)=mean(FrR);
+        Session(ff).CVDUnit(unitNum)=std(ISID)/mean(ISID);
+        Session(ff).CVDUnitTrials(unitNum)=length(ISID);
+         Session(ff).CVSUnitTrials(unitNum)=length(ISIS);
+        Session(ff).ISID{unitNum}=ISID;
+        Session(ff).ISIS{unitNum}=ISIS;
+
+        Session(ff).CV2DUnit(unitNum)=2.*mean(abs(ISID(2:end)-ISID(1:end-1))./(ISID(2:end)+ISID(1:end-1)));
+        Session(ff).FrSUnit(unitNum)=mean(FrS);
+        Session(ff).CVSUnit(unitNum)=std(ISIS)/mean(ISIS);
+        Session(ff).CV2SUnit(unitNum)=2.*mean(abs(ISIS(2:end)-ISIS(1:end-1))./(ISIS(2:end)+ISIS(1:end-1)));
+        Session(ff).SpikeWidth(unitNum)=SpikeWidth;
+        Session(ff).Depth(unitNum)=Depth;
+        
+        
+        
+    end
+    
+
+    
+    FS_vec=Session(ff).SpikeWidth<0.35;
+    Exc_vec=Session(ff).SpikeWidth>0.5;
+    
+%     Layer5=(Session(ff).Depth>400) .* (Session(ff).Depth<1100);
+    Layer5=(Session(ff).Depth>0) .* (Session(ff).Depth<1300);
+    Exc_vecLayer5=logical(Layer5.*Exc_vec);
+    figure(1000)
+    plot(Session(ff).FrDUnit(Exc_vecLayer5), Session(ff).Depth(Exc_vecLayer5),'ob')
+     plot(Session(ff).FrDUnit(FS_vec), Session(ff).Depth(FS_vec),'og')
+    hold on
+    box off
+    
+    figure(10)
+    plot(Session(ff).FrSUnit(Exc_vec),Session(ff).CVSUnit(Exc_vec),'or')
+    hold on
+    plot(Session(ff).FrDUnit(Exc_vec),Session(ff).CVDUnit(Exc_vec),'ob')
+    box off
+    ylim([0 3])
+    xlim([0 70])
+    axis square
+    
+    figure(110)
+    plot(Session(ff).FrSUnit(FS_vec),Session(ff).CVSUnit(FS_vec),'or')
+    hold on
+    plot(Session(ff).FrDUnit(FS_vec),Session(ff).CVDUnit(FS_vec),'og')
+    box off
+    ylim([0 3])
+    xlim([0 70])
+    axis square
+    
+    
+    figure(12)
+    plot(Session(ff).FrSUnit(Exc_vec),Session(ff).CV2SUnit(Exc_vec),'or')
+    hold on
+    plot(Session(ff).FrDUnit(Exc_vec),Session(ff).CV2DUnit(Exc_vec),'ob')
+    box off
+    ylim([0 3])
+    xlim([0 70])
+    axis square
+    
+    figure(112)
+    plot(Session(ff).FrSUnit(FS_vec),Session(ff).CV2SUnit(FS_vec),'or')
+    hold on
+    plot(Session(ff).FrDUnit(FS_vec),Session(ff).CV2DUnit(FS_vec),'og')
+    box off
+    ylim([0 3])
+    xlim([0 70])
+    axis square
+
+    Session(ff).fileName=fileName;
+
+end
+
+%%
+EtotFrR=[];EtotFrS=[];EtotFrD=[];EtotCVS=[];EtotCVD=[];EtotCV2S=[];EtotCV2D=[];
+ItotFrS=[];ItotFrD=[];ItotCVS=[];ItotCVD=[];ItotCV2S=[];ItotCV2D=[];
+EtotFrDL5=[];EtotCVDL5=[];DepthAll=[];EtotCVDTrials=[];
+Exc_vec_List=[];
+FS_vec_List=[];
+for ff=1:numFiles
+    FS_vec=Session(ff).SpikeWidth<0.35;
+    Exc_vec=Session(ff).SpikeWidth>0.5;
+    Layer5=(Session(ff).Depth>400) .* (Session(ff).Depth<800);
+    Exc_vecLayer5=logical(Layer5.*Exc_vec);
+    
+    DepthAll=[DepthAll Session(ff).Depth(Exc_vec)];
+    
+    EtotFrDL5=[EtotFrDL5 Session(ff).FrDUnit(Exc_vecLayer5)];
+    EtotCVDL5=[EtotCVDL5 Session(ff).CVDUnit(Exc_vecLayer5)];
+Exc_vec_List=[Exc_vec_List Exc_vec];
+FS_vec_List=[FS_vec_List FS_vec];
+        
+    EtotFrS=[EtotFrS Session(ff).FrSUnit(Exc_vec)];
+    EtotFrD=[EtotFrD Session(ff).FrDUnit(Exc_vec)];
+        EtotFrR=[EtotFrR Session(ff).FrRUnit(Exc_vec)];
+    EtotCVS=[EtotCVS Session(ff).CVSUnit(Exc_vec)];
+    EtotCVD=[EtotCVD Session(ff).CVDUnit(Exc_vec)];
+
+     EtotCVDTrials=[EtotCVDTrials Session(ff).CVDUnitTrials(Exc_vec)];
+
+    EtotCV2S=[EtotCV2S Session(ff).CV2SUnit(Exc_vec)];
+    EtotCV2D=[EtotCV2D Session(ff).CV2DUnit(Exc_vec)];
+    
+    ItotFrS=[ItotFrS Session(ff).FrSUnit(FS_vec)];
+    ItotFrD=[ItotFrD Session(ff).FrDUnit(FS_vec)];
+    ItotCVS=[ItotCVS Session(ff).CVSUnit(FS_vec)];
+    ItotCVD=[ItotCVD Session(ff).CVDUnit(FS_vec)];
+    ItotCV2S=[ItotCV2S Session(ff).CV2SUnit(FS_vec)];
+    ItotCV2D=[ItotCV2D Session(ff).CV2DUnit(FS_vec)];
+end
+figure(100)
+hist(EtotFrD,25)
+box off
+axis square
+xlim([0 70])
+
+CVD=EtotCVD;
+CVD(isnan(EtotCVD))=[];
+CVD(CVD==0)=[];
+figure(200)
+hist(CVD,25)
+box off
+xlim([0 3])
+axis square
+
+
+figure(600)
+% subplot 211
+plot(EtotFrD,EtotCVD,'o')
+hold on
+plot(ItotFrD,ItotCVD,'o')
+box off
+axis square
+ylim([0 3])
+%%
+figure(222)
+plot(EtotCVS,EtotCVD,'o')
+hold on
+plot(ItotCVS,ItotCVD,'or')
+plot(0:1:3,0:1:3,'-k')
+box off
+axis square
+ylim([0 3])
+xlim([0 3])
+EtotCVD(isnan(EtotCVD))=[];
+EtotCVS(isnan(EtotCVS))=[];
+[HSD,PSD,CI,STATS] = ttest2(EtotCVS,EtotCVD);
+
+%% Figure 1C: Log normal (log10) E and I
+% Number of data points
+N = 10000;
+% Specify bin locations for histogram and fit
+BIN_WIDTH = 0.1;
+BIN_MAX = 2;
+BIN_RANGE = -2:BIN_WIDTH:BIN_MAX;
+% x_values = BIN_RANGE;
+% Make up some data. (You should use your real data in place of x.)
+x = EtotFrD';%lognrnd(1,0.3,N,1);
+% Fit the data
+x(find(EtotFrD==0))=0.001;
+% parmhat = lognfit(x);
+pd=fitdist(log10(x),'Normal');
+% Plot comparison of the histogram of the data, and the fit
+figure
+hold on
+% Empirical distribution
+y_data=hist(log10(x),BIN_RANGE);
+y_clear=hist((x),0:0.1:60);
+bar(BIN_RANGE,y_data./sum(y_data)/0.1,'b','facecolor','k','facealpha',.5,'edgecolor','none')
+y = pdf(pd,BIN_RANGE);
+plot(BIN_RANGE,y,'b','LineWidth',4)
+% semilogx(0:0.1:60,y_clear)
+% hist(log10(x)./sum(log10(x))/0.1,BIN_RANGE)
+
+hold on
+BIN_WIDTH = 0.2;
+BIN_MAX = 3;
+BIN_RANGE = -3:BIN_WIDTH:BIN_MAX;
+
+
+x = ItotFrD';%lognrnd(1,0.3,N,1);
+% Fit the data
+x(find(ItotFrD==0))=0.001;
+% parmhat = lognfit(x);
+pd=fitdist(log10(x),'Normal');
+% Plot comparison of the histogram of the data, and the fit
+% figure
+hold on
+% Empirical distribution
+y_data=hist(log10(x),BIN_RANGE);
+y_clear=hist((x),0:0.1:60);
+bar(BIN_RANGE,y_data./sum(y_data)/BIN_WIDTH,'r','facecolor','k','facealpha',.5,'edgecolor','none')
+% semilogx(0:0.1:60,y_clear)
+% hist(log10(x)./sum(log10(x))/0.1,BIN_RANGE)
+
+hold on
+
+x_values = BIN_RANGE;
+y = pdf(pd,x_values);
+plot(x_values,y,'r','LineWidth',4)
+%% Figure 1F-E-G
+
+
+
+
+plot(mCorrectedDelay(AuditoryFlag(goodCellsNoRepRegular)==0),FrDALL(AuditoryFlag(goodCellsNoRepRegular)==0),'om')
+hold on;plot(mCorrectedDelay(AuditoryFlag(goodCellsNoRepRegular)==1),FrDALL(AuditoryFlag(goodCellsNoRepRegular)==1),'xm')
+
+mV=mean(mCorrectedDelay(AuditoryFlag(goodCellsNoRepRegular)==1));SDV=std(mCorrectedDelay(AuditoryFlag(goodCellsNoRepRegular)==1));
+mVS=mean(mCorrectedDelay(AuditoryFlag(goodCellsNoRepRegular)==0));SDVS=std(mCorrectedDelay(AuditoryFlag(goodCellsNoRepRegular)==0));
+title(sprintf('Aud: mVD=%.1f,sdmVD=%.1f; Tac mVD=%.1f,sdmVD=%.1f',mV,SDV,mVS,SDVS))
+
+figure
+
+plot(mCorrectedDelay(AuditoryFlag(goodCellsNoRepRegular)==0),DTSD(AuditoryFlag(goodCellsNoRepRegular)==0),'om')
+hold on;plot(mCorrectedDelay(AuditoryFlag(goodCellsNoRepRegular)==1),DTSD(AuditoryFlag(goodCellsNoRepRegular)==1),'xm')
+
+
+x=mCorrectedDelay';
+y=(DTSD)';
+[Rsq,yCalc]= MyLinearReg(x,y);
+plot(x,yCalc,'m')
+legend(sprintf('red R^2=%.2f ',Rsq))
+
+
+mV=mean(DTSD(AuditoryFlag(goodCellsNoRepRegular)==1));SDV=std(DTSD(AuditoryFlag(goodCellsNoRepRegular)==1));
+mVS=mean(DTSD(AuditoryFlag(goodCellsNoRepRegular)==0));SDVS=std(DTSD(AuditoryFlag(goodCellsNoRepRegular)==0));
+title(sprintf('Aud: mSD=%.1f,sdSD=%.1f; Tac mSD=%.1f,sdSD=%.1f',mV,SDV,mVS,SDVS))
+box off
+
+% 
+% figure
+% histogram((mCorrectedDelay(AuditoryFlag(goodCellsNoRepRegular)==1)),-70:4:-30,'facecolor','m','facealpha',.5,'edgecolor','none')
+% hold on
+% histogram((mCorrectedDelay(AuditoryFlag(goodCellsNoRepRegular)==0)),-70:4:-30,'facecolor','k','facealpha',.5,'edgecolor','none')
+% box off
+
+figure
+histogram(mCorrectedDelay,-70:4:-30,'facecolor','m','facealpha',.5,'edgecolor','none')
+hold on
+box off
+xlim([-70 -30])
+
+% Plot with respect to threshold and threhsold distribution
+difv_plot=mCorrectedDelay;tresh_plot=thD;
+mean(thD)
+std(thD)
+difv_plot(thD==0)=[];tresh_plot(thD==0)=[];
+figure
+histogram(tresh_plot,-40:0.5:-30,'facecolor','m','facealpha',.5,'edgecolor','none')
+
+figure
+histogram(tresh_plot-difv_plot,6:2:30,'facecolor','m','facealpha',.5,'edgecolor','none')
+
+
+
+
+
+
+%% Figure S1C: CV Vs Rates 
+
+load('FrCVWholeDelay.mat')
+figure(300)
+plot(EtotFrD,EtotCVD,'ob')
+hold on
+plot(FrDALL,CVD,'xg')
+plot(EtotFrS,EtotCVS,'or')
+hold on
+plot(FrSALL,CVS,'xc')
+box off
+legend('Delay,Probes','Delay,WholeCell','Sample,Probes','Sample,WholeCell')
+xlim([1 60])
+ylim([0 3])
